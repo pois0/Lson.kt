@@ -6,6 +6,18 @@ import jp.pois.lsonkt.source.CharSequenceSlice
 
 sealed class JsonValue {
     protected var failed = false
+
+    @Suppress("NOTHING_TO_INLINE")
+    protected inline fun fail() {
+        failed = true
+        throw ParsingFailedException()
+    }
+
+    @Suppress("NOTHING_TO_INLINE")
+    protected inline fun fail(e: Throwable) {
+        failed = true
+        throw e
+    }
 }
 
 object NullValue : JsonValue()
@@ -17,37 +29,37 @@ data class BooleanValue(val value: Boolean) : JsonValue() {
 data class IntegerValue(val rawCharSeq: CharSequenceSlice) : JsonValue() {
     companion object {
         private const val Limit = Long.MAX_VALUE / 10
-
-        private fun parseToInteger(rawCharSeq: CharSequenceSlice): Long {
-            var value = 0L
-            var cursor = 0
-            val negative = if (rawCharSeq[cursor] == '-') {
-                if (rawCharSeq.length == 1) throw NumberFormatException()
-                cursor++
-                true
-            } else false
-
-            if (rawCharSeq[cursor] == '0') {
-                if (cursor + 1 < rawCharSeq.length) throw NumberFormatException()
-
-                return 0L
-            } else {
-                cursor--
-            }
-
-            while (++cursor < rawCharSeq.length) {
-                val c = rawCharSeq[cursor] - '0'
-                if (c !in 0..9) throw NumberFormatException()
-                if (value >= Limit) throw NumberFormatException()
-                value *= 10
-                value += c
-            }
-
-            return if (negative) -value else value
-        }
     }
 
-    val value: Long by lazy { parseToInteger(rawCharSeq) }
+    val value: Long by lazy { parseToInteger() }
+
+    private fun parseToInteger(): Long {
+        var value = 0L
+        var cursor = 0
+        val negative = if (rawCharSeq[cursor] == '-') {
+            if (rawCharSeq.length == 1) fail(NumberFormatException())
+            cursor++
+            true
+        } else false
+
+        if (rawCharSeq[cursor] == '0') {
+            if (cursor + 1 < rawCharSeq.length) fail(NumberFormatException())
+
+            return 0L
+        } else {
+            cursor--
+        }
+
+        while (++cursor < rawCharSeq.length) {
+            val c = rawCharSeq[cursor] - '0'
+            if (c !in 0..9) fail(NumberFormatException())
+            if (value >= Limit) fail(NumberFormatException())
+            value *= 10
+            value += c
+        }
+
+        return if (negative) -value else value
+    }
 
     override fun toString(): String = value.toString()
 }
@@ -75,7 +87,12 @@ data class FloatValue(val rawCharSeq: CharSequenceSlice) : JsonValue() {
 }
 
 data class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSequence {
-    val value by lazy {
+    val value: String by lazy { parseToString() }
+
+    override val length: Int
+        get() = value.length
+
+    private fun parseToString(): String {
         var cursor = 0
 
         val tmp = CharArray(rawCharSeq.length)
@@ -107,11 +124,8 @@ data class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSeq
             cursor++
         }
 
-        String(tmp, 0, tmpCursor)
+        return String(tmp, 0, tmpCursor)
     }
-
-    override val length: Int
-        get() = value.length
 
     override fun get(index: Int): Char = value[index]
 
@@ -250,12 +264,6 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
         if (toIndex > evaluatedList.size && !parseUntil(toIndex)) throw IndexOutOfBoundsException()
 
         return evaluatedList.subList(fromIndex, toIndex)
-    }
-
-    @Suppress("NOTHING_TO_INLINE")
-    private inline fun fail() {
-        failed = true
-        throw ParsingFailedException()
     }
 
     private fun parseAll() {

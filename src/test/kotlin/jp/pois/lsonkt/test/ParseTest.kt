@@ -4,26 +4,16 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import jp.pois.lsonkt.IntegerValue
+import jp.pois.lsonkt.StringValue
 import jp.pois.lsonkt.source.StringSlice
-import jp.pois.lsonkt.test.utils.access
-import kotlin.reflect.full.companionObjectInstance
-import kotlin.reflect.full.declaredFunctions
 
 class NumberParseTest : StringSpec({
-    val obj = IntegerValue::class.companionObjectInstance
-
-    fun parseToInteger(value: String): Long =
-        IntegerValue.Companion::class.declaredFunctions.find { it.name == "parseToInteger" }!!.access.call(
-            obj,
-            StringSlice(value)
-        ) as Long
-
     val legalStrings =
         listOf("0", "-0", "1", "3", "100", "-100", "1234567890", "-1234567890", "9876543210", "-9876543210")
 
     legalStrings.forEach {
         it {
-            parseToInteger(it) shouldBe it.toLong()
+            IntegerValue(StringSlice(it)).value shouldBe it.toLong()
         }
     }
 
@@ -49,7 +39,41 @@ class NumberParseTest : StringSpec({
 
     formatExceptionStrings.forEach {
         it {
-            shouldThrow<NumberFormatException> { runCatching { parseToInteger(it) }.exceptionOrNull()?.cause?.let { throw it } }
+            shouldThrow<NumberFormatException> { IntegerValue(StringSlice(it)).value }
         }
     }
+})
+
+class StringParseTest : StringSpec({
+
+    val legalStrings = listOf(
+        "abcde" to "abcde",
+        "1234567890" to "1234567890"
+    )
+
+    legalStrings.forEach { (value, expected) ->
+        expected {
+            StringValue(StringSlice(value)).value shouldBe expected
+        }
+    }
+
+    val backQuoteStrings = listOf(
+        "\"" to "\"",
+        "\\" to "\\",
+        "/" to "/",
+        "b" to "\b",
+        "u000C" to "\u000C",
+        "n" to "\n",
+        "r" to "\r",
+        "t" to "\t"
+    )
+
+    backQuoteStrings.forEach { (value, expected) ->
+        val str = "\\" + value
+        str {
+            StringValue(StringSlice(str)).value shouldBe expected
+        }
+    }
+
+
 })

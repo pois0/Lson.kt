@@ -22,7 +22,7 @@ class StringSlice internal constructor(val original: String, val startIndex: Int
     }
 
     override fun substring(startIndex: Int, endIndex: Int): String {
-        if (startIndex !in 0 until endIndex || endIndex <= length) {
+        if (startIndex !in 0 until endIndex || endIndex > length) {
             throw IndexOutOfBoundsException()
         }
 
