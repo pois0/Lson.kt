@@ -10,7 +10,7 @@ class StringSlice internal constructor(val original: String, val startIndex: Int
         if (index in 0 until length) original[startIndex + index] else throw IndexOutOfBoundsException()
 
     override fun slice(startIndex: Int, endIndex: Int): StringSlice {
-        if (startIndex !in 0 until endIndex || endIndex <= length) {
+        if (startIndex !in 0..endIndex || endIndex > length) {
             throw IndexOutOfBoundsException()
         }
 

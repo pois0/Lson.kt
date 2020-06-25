@@ -3,8 +3,7 @@ package jp.pois.lsonkt.test
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import jp.pois.lsonkt.IntegerValue
-import jp.pois.lsonkt.StringValue
+import jp.pois.lsonkt.*
 import jp.pois.lsonkt.source.StringSlice
 
 class NumberParseTest : StringSpec({
@@ -75,5 +74,49 @@ class StringParseTest : StringSpec({
         }
     }
 
+})
 
+class ArrayTest : StringSpec({
+    "emptyArray" {
+        ArrayValue(StringSlice("")).isEmpty() shouldBe true
+    }
+
+    "booleanArray" {
+        val original = booleanArrayOf(true, false, true, false)
+        val arr = ArrayValue(StringSlice(original.joinToString()))
+
+        for ((i, b) in original.withIndex()) {
+            arr[i].asBoolean().value shouldBe b
+        }
+    }
+
+    "integerArray" {
+        val range = 0 until 100
+        val arr = ArrayValue(StringSlice(range.joinToString()))
+
+        for (i in range) {
+            arr[i].asInteger().value shouldBe i
+        }
+    }
+
+    "stringArray" {
+        val data = arrayOf("" to "", "hello, " to "hello, ", "world!" to "world!", "\\\"" to "\"", "\\\\" to "\\")
+        val arr = ArrayValue(StringSlice(data.joinToString { "\"${it.first}\"" }))
+
+        for ((i, str) in data.map { it.second }.withIndex()) {
+            arr[i].asString().value shouldBe str
+        }
+    }
+
+    "arrayInArray" {
+        val arr = ArrayValue(StringSlice("[], [[]], [[], [[]]]"))
+
+        arr[0].asArray().isEmpty() shouldBe true
+        arr[1].asArray()[0].asArray().isEmpty() shouldBe true
+        arr[2].asArray().let {
+            it.size shouldBe 2
+            it[0].asArray().isEmpty() shouldBe true
+            it[1].asArray()[0].asArray().isEmpty() shouldBe true
+        }
+    }
 })

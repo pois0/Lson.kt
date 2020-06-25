@@ -8,13 +8,13 @@ sealed class JsonValue {
     protected var failed = false
 
     @Suppress("NOTHING_TO_INLINE")
-    protected inline fun fail() {
+    protected inline fun fail(): Nothing {
         failed = true
         throw ParsingFailedException()
     }
 
     @Suppress("NOTHING_TO_INLINE")
-    protected inline fun fail(e: Throwable) {
+    protected inline fun fail(e: Throwable): Nothing {
         failed = true
         throw e
     }
@@ -65,23 +65,10 @@ data class IntegerValue(val rawCharSeq: CharSequenceSlice) : JsonValue() {
 }
 
 data class FloatValue(val rawCharSeq: CharSequenceSlice) : JsonValue() {
-    val value: Double by lazy {
-        var cursor = 0
-        var value = if (rawCharSeq[0] == '-') -0.0 else {
-            cursor--
-            0.0
-        }
+    val value: Double by lazy { parseToDouble() }
 
-        while (++cursor < rawCharSeq.length) {
-            when (rawCharSeq[cursor]) {
-                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
-
-                }
-            }
-        }
-
-        value
-    }
+    // TODO: Parse the string as a double strictly
+    private fun parseToDouble(): Double = rawCharSeq.toString().toDouble()
 
     override fun toString(): String = value.toString()
 }
@@ -111,14 +98,13 @@ data class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSeq
                     'r' -> '\r'
                     't' -> '\t'
                     'u' -> {
+                        if (cursor + 5 > rawCharSeq.length) throw IndexOutOfBoundsException()
+
                         rawCharSeq.substring(cursor + 1, cursor + 5).toInt(16).toChar().also {
                             cursor += 4
                         }
                     }
-                    else -> {
-                        failed = true
-                        throw ParsingFailedException()
-                    }
+                    else -> fail()
                 }
             } else c
             cursor++
@@ -138,18 +124,18 @@ data class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSeq
 open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<JsonValue> {
     private var cursor: Int = 0
 
-    private val evaluatedList = ArrayList<JsonValue>()
+    private val scannedList = ArrayList<JsonValue>()
 
     private var currentState = ArrayStarted
 
     override val size: Int
         get() {
             parseAll()
-            return evaluatedList.size
+            return scannedList.size
         }
 
-    val currentSize: Int
-        get() = evaluatedList.size
+    val scannedSize: Int
+        get() = scannedList.size
 
     private val isScannedAll
         get() = currentState == ArrayClosed
@@ -159,23 +145,22 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
     override fun containsAll(elements: Collection<JsonValue>): Boolean = elements.all { contains(it) }
 
     override fun get(index: Int): JsonValue {
-        return if (index < evaluatedList.size) {
-            evaluatedList[index]
+        return if (index < scannedList.size) {
+            scannedList[index]
         } else {
             if (!parseUntil(index + 1)) throw ParsingFailedException()
-
-            return evaluatedList.last()
+            return scannedList.last()
         }
     }
 
     override fun indexOf(element: JsonValue): Int {
-        val check = evaluatedList.indexOf(element)
+        val check = scannedList.indexOf(element)
         if (check >= 0) return check
 
         if (!isScannedAll) {
             while (parseNext()) {
-                if (evaluatedList.last() == element) {
-                    return evaluatedList.lastIndex
+                if (scannedList.last() == element) {
+                    return scannedList.lastIndex
                 }
             }
         }
@@ -185,31 +170,31 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
 
     override fun isEmpty(): Boolean {
         if (cursor != rawCharSeq.length) parseAll()
-        return evaluatedList.isEmpty()
+        return scannedList.isEmpty()
     }
 
     override fun iterator(): Iterator<JsonValue> = object : Iterator<JsonValue> {
         private var index = 0
 
         override fun hasNext(): Boolean {
-            if (index < currentSize) return true
+            if (index < scannedSize) return true
 
             return parseUntil(index + 1)
         }
 
         override fun next(): JsonValue {
-            if (index < currentSize || parseUntil(index + 1)) return evaluatedList[index++]
+            if (index < scannedSize || parseUntil(index + 1)) return scannedList[index++]
 
             throw IndexOutOfBoundsException()
         }
     }
 
     override fun lastIndexOf(element: JsonValue): Int {
-        var check = evaluatedList.lastIndexOf(element)
+        var check = scannedList.lastIndexOf(element)
 
         while (parseNext()) {
-            if (evaluatedList.last() == element) {
-                check = evaluatedList.lastIndex
+            if (scannedList.last() == element) {
+                check = scannedList.lastIndex
             }
         }
 
@@ -222,7 +207,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
         private var currentIndex = index
 
         init {
-            if (currentIndex > currentSize) {
+            if (currentIndex > scannedSize) {
                 if (isScannedAll) {
                     throw IndexOutOfBoundsException()
                 }
@@ -234,7 +219,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
         }
 
         override fun hasNext(): Boolean {
-            if (currentIndex < currentSize) return true
+            if (currentIndex < scannedSize) return true
 
             return parseUntil(currentIndex + 1)
         }
@@ -242,7 +227,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
         override fun hasPrevious(): Boolean = currentIndex > 0
 
         override fun next(): JsonValue {
-            if (currentIndex < currentSize || parseUntil(currentIndex + 1)) return evaluatedList[currentIndex++]
+            if (currentIndex < scannedSize || parseUntil(currentIndex + 1)) return scannedList[currentIndex++]
 
             throw IndexOutOfBoundsException()
         }
@@ -252,7 +237,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
         override fun previous(): JsonValue {
             if (currentIndex <= 0) throw IndexOutOfBoundsException()
 
-            return evaluatedList[--currentIndex]
+            return scannedList[--currentIndex]
         }
 
         override fun previousIndex(): Int = currentIndex - 1
@@ -261,12 +246,12 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
 
 
     override fun subList(fromIndex: Int, toIndex: Int): List<JsonValue> {
-        if (toIndex > evaluatedList.size && !parseUntil(toIndex)) throw IndexOutOfBoundsException()
+        if (toIndex > scannedList.size && !parseUntil(toIndex)) throw IndexOutOfBoundsException()
 
-        return evaluatedList.subList(fromIndex, toIndex)
+        return scannedList.subList(fromIndex, toIndex)
     }
 
-    private fun parseAll() {
+    fun parseAll() {
         @Suppress("ControlFlowWithEmptyBody")
         while (parseNext()) {
         }
@@ -275,8 +260,8 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
     /**
      * @return If the number of elements in this array is less than `until` , returns false
      */
-    private fun parseUntil(until: Int): Boolean {
-        val n = until - evaluatedList.size
+    fun parseUntil(until: Int): Boolean {
+        val n = until - scannedList.size
         if (n <= 0) return true
         if (isScannedAll) return false
 
@@ -290,8 +275,9 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
     /**
      * @return If no element remains, returns false
      */
-    private fun parseNext(): Boolean {
-        while (currentState.readyForNextValue) {
+    fun parseNext(): Boolean {
+        var cursor = cursor
+        while (!currentState.readyForNextValue) {
             if (cursor >= rawCharSeq.length) {
                 currentState = ArrayClosed
                 return false
@@ -301,53 +287,66 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
 
             if (c == ',') {
                 currentState = ArrayAfterComma
+            } else if (!c.isWhitespace()) {
+                println(rawCharSeq)
+                println(cursor - 1)
+                println(c)
+                fail()
             }
-
-            if (!c.isWhitespace()) fail()
         }
+
+        cursor--
 
         var nest = 0
         var startAt = -1
 
-        while (++cursor < rawCharSeq.length) {
+        val value: JsonValue
+
+        loop@ while (true) {
+            if (++cursor >= rawCharSeq.length) {
+                if (nest > 0 || !currentState.readyToClose) fail()
+                else return false
+            }
             val c = rawCharSeq[cursor]
             if (c.isWhitespace()) continue
             if (nest == 0) {
                 when (c) {
                     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-' -> {
                         startAt = cursor
-                        if (parseNumber()) {
-                            evaluatedList.add(FloatValue(rawCharSeq.slice(startAt, cursor)))
+
+                        this.cursor = cursor
+                        val cond = classifyNumber()
+                        cursor = this.cursor
+
+                        value = if (cond) {
+                            FloatValue(rawCharSeq.slice(startAt, cursor))
                         } else {
-                            evaluatedList.add(IntegerValue(rawCharSeq.slice(startAt, cursor)))
+                            IntegerValue(rawCharSeq.slice(startAt, cursor))
                         }
-                        currentState = ArrayValueFinished
-                        return true
+
+                        break@loop
                     }
                     't' -> {
                         if (rawCharSeq.substring(cursor, cursor + 4) == "true") {
-                            evaluatedList.add(BooleanValue(true))
+                            value = BooleanValue(true)
                             cursor += 4
-                            currentState = ArrayValueFinished
-                            return true
+                            break@loop
                         }
                         fail()
                     }
                     'f' -> {
                         if (rawCharSeq.substring(cursor, cursor + 5) == "false") {
-                            evaluatedList.add(BooleanValue(true))
+                            value = BooleanValue(false)
                             cursor += 5
-                            currentState = ArrayValueFinished
-                            return true
+                            break@loop
                         }
                         fail()
                     }
                     'n' -> {
                         if (rawCharSeq.substring(cursor, cursor + 4) == "null") {
-                            evaluatedList.add(BooleanValue(true))
+                            value = BooleanValue(true)
                             cursor += 4
-                            currentState = ArrayValueFinished
-                            return true
+                            break@loop
                         }
                         fail()
                     }
@@ -368,10 +367,9 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
                     if (nest == 0) {
                         if (currentState != ObjectStarted) fail()
 
-                        evaluatedList.add(ObjectValue(rawCharSeq.slice(startAt, cursor)))
-                        currentState = ArrayValueFinished
-                        return true
-                    }
+                        value = ObjectValue(rawCharSeq.slice(startAt, cursor++))
+                        break@loop
+                    } else if (nest < 0) fail()
                 }
                 '[' -> {
                     if (nest == 0) {
@@ -387,10 +385,9 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
                     if (nest == 0) {
                         if (currentState != ArrayStarted) fail()
 
-                        evaluatedList.add(ArrayValue(rawCharSeq.slice(startAt, cursor)))
-                        currentState = ArrayValueFinished
-                        return true
-                    }
+                        value = ArrayValue(rawCharSeq.slice(startAt, cursor++))
+                        break@loop
+                    } else if (nest < 0) fail()
                 }
                 '"' -> {
                     if (nest == 0) {
@@ -410,19 +407,21 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
                     }
 
                     if (nest == 0) {
-                        evaluatedList.add(StringValue(rawCharSeq.slice(startAt, cursor)))
-                        return true
+                        value = StringValue(rawCharSeq.slice(startAt, cursor++))
+                        break@loop
                     }
                 }
             }
         }
 
-        if (nest > 0 || !currentState.readyToClose) fail()
+        scannedList.add(value)
+        currentState = ArrayValueFinished
+        this.cursor = cursor
 
-        return false
+        return true
     }
 
-    private fun parseNumber(): Boolean {
+    private fun classifyNumber(): Boolean {
         var isFloat = false
         while (++cursor < rawCharSeq.length) {
             val c = rawCharSeq[cursor]
@@ -434,29 +433,312 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
 }
 
 class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, JsonValue> {
+    private var cursor: Int = 0
+
+    private var scannedMap = HashMap<String, JsonValue>()
+
+    private var currentState = ObjectStarted
+
+    private val isScannedAll
+        get() = currentState == ObjectClosed
+
     override val entries: Set<Map.Entry<String, JsonValue>>
-        get() = TODO("Not yet implemented")
+        get() {
+            if (!isScannedAll) parseAll()
+            return scannedMap.entries
+        }
+
+    val scannedEntries: Set<Map.Entry<String, JsonValue>>
+        get() = scannedMap.entries
+
     override val keys: Set<String>
-        get() = TODO("Not yet implemented")
+        get() {
+            if (!isScannedAll) parseAll()
+            return scannedMap.keys
+        }
+
+    val scannedKeys: Set<String>
+        get() = scannedMap.keys
+
     override val size: Int
-        get() = TODO("Not yet implemented")
+        get() {
+            if (!isScannedAll) parseAll()
+            return scannedMap.size
+        }
+
+    val scannedSize: Int
+        get() = scannedMap.size
+
     override val values: Collection<JsonValue>
-        get() = TODO("Not yet implemented")
+        get() {
+            if (!isScannedAll) parseAll()
+            return scannedMap.values
+        }
+
+    val scannedValues: Collection<JsonValue>
+        get() = scannedMap.values
 
     override fun containsKey(key: String): Boolean {
-        TODO("Not yet implemented")
+        if (scannedMap.containsKey(key)) return true
+        if (isScannedAll) return false
+
+        var e = parseNext()
+        while (e != null) {
+            val (k, _) = e
+            if (k == key) return true
+            e = parseNext()
+        }
+
+        return false
     }
 
     override fun containsValue(value: JsonValue): Boolean {
-        TODO("Not yet implemented")
+        if (scannedMap.containsValue(value)) return true
+        if (isScannedAll) return false
+
+        var e = parseNext()
+        while (e != null) {
+            val (_, v) = e
+            if (v == value) return true
+            e = parseNext()
+        }
+
+        return false
     }
 
     override fun get(key: String): JsonValue? {
-        TODO("Not yet implemented")
+        val value = scannedMap[key]
+        if (value != null || isScannedAll) return value
+
+        var e = parseNext()
+        while (e != null) {
+            val (k, v) = e
+            if (k == key) return v
+            e = parseNext()
+        }
+
+        return null
     }
 
     override fun isEmpty(): Boolean {
-        TODO("Not yet implemented")
+        if (!isScannedAll) parseAll()
+
+        return scannedMap.isEmpty()
     }
 
+    fun parseAll() {
+        @Suppress("ControlFlowWithEmptyBody")
+        while (parseNext() != null) {
+        }
+    }
+
+    fun parseNext(): Pair<String, JsonValue>? {
+        var cursor = cursor
+
+        while (!currentState.readyForNextValue) {
+            if (cursor >= rawCharSeq.length) {
+                currentState = ObjectClosed
+                return null
+            }
+
+            val c = rawCharSeq[cursor++]
+
+            if (c == ',') {
+                currentState = ObjectAfterComma
+            } else if (!c.isWhitespace()) fail()
+        }
+
+        var nest = 0
+        var startAt = -1
+
+        val key: String
+
+        cursor--
+
+        while (true) {
+            if (++cursor >= rawCharSeq.length) {
+                if (currentState.readyToClose) return null else fail()
+            }
+
+            val c = rawCharSeq[cursor]
+            if (c.isWhitespace()) continue
+            if (c == '"') {
+                this.cursor = cursor
+                key = parseKey()
+                cursor = this.cursor
+                break
+            }
+        }
+
+        val value: JsonValue
+
+        loop@ while (true) {
+            if (++cursor >= rawCharSeq.length) fail()
+            val c = rawCharSeq[cursor]
+            if (c.isWhitespace()) continue
+            if (nest == 0) {
+                when (c) {
+                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-' -> {
+                        startAt = cursor
+
+                        this.cursor = cursor
+                        val cond = classifyNumber()
+                        cursor = this.cursor
+
+                        value = if (cond) {
+                            FloatValue(rawCharSeq.slice(startAt, cursor))
+                        } else {
+                            IntegerValue(rawCharSeq.slice(startAt, cursor))
+                        }
+                        currentState = ObjectEntryFinished
+                        break@loop
+                    }
+                    't' -> {
+                        if (rawCharSeq.substring(cursor, cursor + 4) == "true") {
+                            value = BooleanValue(true)
+                            cursor += 4
+                            currentState = ArrayValueFinished
+                            break@loop
+                        }
+                        fail()
+                    }
+                    'f' -> {
+                        if (rawCharSeq.substring(cursor, cursor + 5) == "false") {
+                            value = BooleanValue(true)
+                            cursor += 5
+                            currentState = ArrayValueFinished
+                            break@loop
+                        }
+                        fail()
+                    }
+                    'n' -> {
+                        if (rawCharSeq.substring(cursor, cursor + 4) == "null") {
+                            value = BooleanValue(true)
+                            cursor += 4
+                            currentState = ArrayValueFinished
+                            break@loop
+                        }
+                        fail()
+                    }
+                }
+            }
+            when (c) {
+                '{' -> {
+                    if (nest == 0) {
+                        if (!currentState.readyForNextValue) fail()
+
+                        startAt = cursor + 1
+                        currentState = ObjectStarted
+                    }
+                    nest++
+                }
+                '}' -> {
+                    nest--
+                    if (nest == 0) {
+                        if (currentState != ObjectStarted) fail()
+
+                        value = ObjectValue(rawCharSeq.slice(startAt, cursor++))
+                        currentState = ArrayValueFinished
+                        break@loop
+                    } else if (nest < 0) fail()
+                }
+                '[' -> {
+                    if (nest == 0) {
+                        if (!currentState.readyForNextValue) fail()
+
+                        startAt = cursor + 1
+                        currentState = ArrayStarted
+                    }
+                    nest++
+                }
+                ']' -> {
+                    nest--
+                    if (nest == 0) {
+                        if (currentState != ArrayStarted) fail()
+
+                        value = ArrayValue(rawCharSeq.slice(startAt, cursor++))
+                        currentState = ArrayValueFinished
+                        break@loop
+                    } else if (nest < 0) fail()
+                }
+                '"' -> {
+                    if (nest == 0) {
+                        if (!currentState.readyForNextValue) fail()
+
+                        startAt = cursor + 1
+                    }
+
+                    stringLoop@ while (true) {
+                        if (++cursor >= rawCharSeq.length) fail()
+                        when (rawCharSeq[cursor]) {
+                            '"' -> break@stringLoop
+                            '\\' -> {
+                                cursor++
+                            }
+                        }
+                    }
+
+                    if (nest == 0) {
+                        value = StringValue(rawCharSeq.slice(startAt, cursor++))
+                        break@loop
+                    }
+                }
+            }
+        }
+
+        scannedMap[key] = value
+        this.cursor = cursor
+        return key to value
+    }
+
+
+    private fun parseKey() = buildString {
+        var cursor = cursor
+        loop@ while (++cursor < rawCharSeq.length) {
+            val c = rawCharSeq[cursor]
+            when (c) {
+                '"' -> {
+                    currentState = ObjectKeyFinished
+                    break@loop
+                }
+                '\\' -> {
+                    append(when (rawCharSeq[++cursor]) {
+                        '"' -> '"'
+                        '\\' -> '\\'
+                        '/' -> '/'
+                        'b' -> '\b'
+                        'f' -> '\u000C'
+                        'n' -> '\n'
+                        'r' -> '\r'
+                        't' -> '\t'
+                        'u' -> {
+                            if (cursor + 5 > rawCharSeq.length) fail()
+
+                            rawCharSeq.substring(cursor + 1, cursor + 5).toInt(16).toChar().also {
+                                cursor += 4
+                            }
+                        }
+                        else -> fail()
+                    })
+                }
+                else -> append(c)
+            }
+        }
+
+        this@ObjectValue.cursor = cursor
+    }
+
+    private fun classifyNumber(): Boolean {
+        var cursor = cursor
+
+        var isFloat = false
+        while (++cursor < rawCharSeq.length) {
+            val c = rawCharSeq[cursor]
+            if (c.isWhitespace() || c == ',') break
+            if (c == '.' || c == 'e') isFloat = true
+        }
+
+        this.cursor = cursor
+        return isFloat
+    }
 }
