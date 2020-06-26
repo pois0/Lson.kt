@@ -2,7 +2,10 @@ package jp.pois.lsonkt.test
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import jp.pois.lsonkt.*
 import jp.pois.lsonkt.source.StringSlice
 
@@ -10,9 +13,16 @@ class NumberParseTest : StringSpec({
     val legalStrings =
         listOf("0", "-0", "1", "3", "100", "-100", "1234567890", "-1234567890", "9876543210", "-9876543210")
 
-    legalStrings.forEach {
-        it {
+    "legalInteger" {
+        legalStrings.forEach {
             IntegerValue(StringSlice(it)).value shouldBe it.toLong()
+        }
+    }
+
+    "parse(legalInteger)" {
+        legalStrings.forEach {
+            parse(it).isInteger() shouldBe true
+            parse(it).asInteger().value shouldBe it.toLong()
         }
     }
 
@@ -36,8 +46,8 @@ class NumberParseTest : StringSpec({
         "-0.3e1"
     )
 
-    formatExceptionStrings.forEach {
-        it {
+    "formatExceptionStrings" {
+        formatExceptionStrings.forEach {
             shouldThrow<NumberFormatException> { IntegerValue(StringSlice(it)).value }
         }
     }
@@ -50,9 +60,17 @@ class StringParseTest : StringSpec({
         "1234567890" to "1234567890"
     )
 
-    legalStrings.forEach { (value, expected) ->
-        expected {
+    "legalStrings" {
+        legalStrings.forEach { (value, expected) ->
             StringValue(StringSlice(value)).value shouldBe expected
+        }
+    }
+
+    "parse(legalStrings)" {
+        legalStrings.forEach { (value, expected) ->
+            val str = parse("\"$value\"")
+            str.shouldBeInstanceOf<StringValue>()
+            str.asString().value shouldBe expected
         }
     }
 
@@ -67,50 +85,92 @@ class StringParseTest : StringSpec({
         "t" to "\t"
     )
 
-    backQuoteStrings.forEach { (value, expected) ->
-        val str = "\\" + value
-        str {
-            StringValue(StringSlice(str)).value shouldBe expected
+    "backQuoteStrings" {
+        backQuoteStrings.forEach { (value, expected) ->
+            StringValue(StringSlice("\\" + value)).value shouldBe expected
         }
     }
 
+    "parse(backQuoteStrings)" {
+        backQuoteStrings.forEach { (value, expected) ->
+            val str = parse("\"\\$value\"")
+            str.shouldBeInstanceOf<StringValue>()
+            str.asString().value shouldBe expected
+        }
+    }
 })
 
 class ArrayTest : StringSpec({
     "emptyArray" {
-        ArrayValue(StringSlice("")).isEmpty() shouldBe true
+        ArrayValue(StringSlice("")).shouldBeEmpty()
     }
 
-    "booleanArray" {
-        val original = booleanArrayOf(true, false, true, false)
-        val arr = ArrayValue(StringSlice(original.joinToString()))
+    "parse(emptyArray)" {
+        val arr = parse("[]")
+        arr.shouldBeInstanceOf<ArrayValue>()
+        arr.asArray().shouldBeEmpty()
+    }
 
-        for ((i, b) in original.withIndex()) {
+    val booleanArray = booleanArrayOf(true, false, true, false)
+
+    "booleanArray" {
+        val arr = ArrayValue(StringSlice(booleanArray.joinToString()))
+
+        for ((i, b) in booleanArray.withIndex()) {
             arr[i].asBoolean().value shouldBe b
         }
     }
 
-    "integerArray" {
-        val range = 0 until 100
-        val arr = ArrayValue(StringSlice(range.joinToString()))
+    "parse(booleanArray)" {
+        val arr = parse(booleanArray.joinToString(prefix = "[", postfix = "]"))
+        arr.shouldBeInstanceOf<ArrayValue>()
+        for ((i, b) in booleanArray.withIndex()) {
+            arr.asArray()[i].asBoolean().value shouldBe b
+        }
+    }
 
-        for (i in range) {
+    val intArray = 0 until 100
+
+    "integerArray" {
+        val arr = ArrayValue(StringSlice(intArray.joinToString()))
+
+        for (i in intArray) {
             arr[i].asInteger().value shouldBe i
         }
     }
 
-    "stringArray" {
-        val data = arrayOf("" to "", "hello, " to "hello, ", "world!" to "world!", "\\\"" to "\"", "\\\\" to "\\")
-        val arr = ArrayValue(StringSlice(data.joinToString { "\"${it.first}\"" }))
+    "parse(integerArray)" {
+        val arr = parse(intArray.joinToString(prefix = "[", postfix = "]"))
+        arr.shouldBeInstanceOf<ArrayValue>()
 
-        for ((i, str) in data.map { it.second }.withIndex()) {
+        for (i in intArray) {
+            arr.asArray()[i].asInteger().value shouldBe i
+        }
+    }
+
+    val stringArray = arrayOf("" to "", "hello, " to "hello, ", "world!" to "world!", "\\\"" to "\"", "\\\\" to "\\")
+
+    "stringArray" {
+        val arr = ArrayValue(StringSlice(stringArray.joinToString { "\"${it.first}\"" }))
+
+        for ((i, str) in stringArray.map { it.second }.withIndex()) {
             arr[i].asString().value shouldBe str
         }
     }
 
+    "parse(stringArray)" {
+        val arr = parse(stringArray.joinToString(prefix = "[", postfix = "]") { "\"${it.first}\"" })
+        arr.shouldBeInstanceOf<ArrayValue>()
+
+        for ((i, str) in stringArray.map { it.second }.withIndex()) {
+            arr.asArray()[i].asString().value shouldBe str
+        }
+    }
+
+    val arrayOfArray = "[], [[]], [[], [[]]]"
+
     "arrayInArray" {
         val arr = ArrayValue(StringSlice("[], [[]], [[], [[]]]"))
-
         arr[0].asArray().isEmpty() shouldBe true
         arr[1].asArray()[0].asArray().isEmpty() shouldBe true
         arr[2].asArray().let {
@@ -118,5 +178,84 @@ class ArrayTest : StringSpec({
             it[0].asArray().isEmpty() shouldBe true
             it[1].asArray()[0].asArray().isEmpty() shouldBe true
         }
+    }
+
+    "parse(arrayInArray)" {
+        val arr = parse("[$arrayOfArray]")
+        arr.shouldBeInstanceOf<ArrayValue>()
+
+        arr.asArray()[0].asArray().isEmpty() shouldBe true
+        arr.asArray()[1].asArray()[0].asArray().isEmpty() shouldBe true
+        arr.asArray()[2].asArray().let {
+            it.size shouldBe 2
+            it[0].asArray().isEmpty() shouldBe true
+            it[1].asArray()[0].asArray().isEmpty() shouldBe true
+        }
+    }
+})
+
+class ObjectTest : StringSpec({
+    "emptyObject" {
+        val obj = ObjectValue(StringSlice(""))
+        obj.shouldBeEmpty()
+    }
+
+    "parse(emptyObject)" {
+        val obj = parse("{}")
+        obj.shouldBeInstanceOf<ObjectValue>()
+        obj.asObject().isEmpty()
+    }
+
+    val simpleObject = """
+        "key1": null,
+        "key2": true,
+        "key3": false,
+        "key4": 320,
+        "key5": "Keys to Ascension",
+        "key6": [],
+        "key7": {}
+    """
+
+    "simpleObject" {
+        val obj = ObjectValue(StringSlice(simpleObject))
+        obj["key1"].shouldBeInstanceOf<NullValue>()
+        obj["key2"].asBoolean().value shouldBe true
+        obj["key3"].asBoolean().value shouldBe false
+        obj["key4"].asInteger().value shouldBe 320
+        obj["key5"].asString().value shouldBe "Keys to Ascension"
+        obj["key6"].asArray().shouldBeEmpty()
+        obj["key7"].asObject().shouldBeEmpty()
+    }
+
+    "parse(simpleObject)" {
+        val _obj = parse("{$simpleObject}")
+        _obj.shouldBeInstanceOf<ObjectValue>()
+        val obj = _obj.asObject()
+        obj["key1"].shouldBeInstanceOf<NullValue>()
+        obj["key2"].asBoolean().value shouldBe true
+        obj["key3"].asBoolean().value shouldBe false
+        obj["key4"].asInteger().value shouldBe 320
+        obj["key5"].asString().value shouldBe "Keys to Ascension"
+        obj["key6"].asArray().shouldBeEmpty()
+        obj["key7"].asObject().shouldBeEmpty()
+    }
+
+    val backslashKey = """
+        "\\": null,
+        "\n\t": false
+    """
+
+    "backslashKey" {
+        val obj = ObjectValue(StringSlice(backslashKey))
+        obj["\\"].shouldBeInstanceOf<NullValue>()
+        obj["\n\t"].asBoolean().value shouldBe false
+    }
+
+    "parse(backslashKey)" {
+        val _obj = parse("{$backslashKey}")
+        _obj.shouldBeInstanceOf<ObjectValue>()
+        val obj = _obj.asObject()
+        obj["\\"].shouldBeInstanceOf<NullValue>()
+        obj["\n\t"].asBoolean().value shouldBe false
     }
 })
