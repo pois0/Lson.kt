@@ -290,12 +290,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
 
             if (c == ',') {
                 currentState = ArrayAfterComma
-            } else if (!c.isJsonWhitespace()) {
-                println(rawCharSeq)
-                println(cursor - 1)
-                println(c)
-                fail()
-            }
+            } else if (!c.isJsonWhitespace()) fail()
         }
 
         cursor--
