@@ -37,7 +37,7 @@ class StringSlice internal constructor(val original: String, val startIndex: Int
     override fun hashCode(): Int = original.hashCode()
 }
 
-fun String.slice(startIndex: Int, endIndex: Int): StringSlice {
+fun String.lsonSlice(startIndex: Int, endIndex: Int): StringSlice {
     if (startIndex !in 0 until length || endIndex <= length) {
         throw IndexOutOfBoundsException()
     }
@@ -45,7 +45,7 @@ fun String.slice(startIndex: Int, endIndex: Int): StringSlice {
     return StringSlice(this, startIndex, endIndex)
 }
 
-fun String.slice(range: IntRange): StringSlice {
+fun String.lsonSlice(range: IntRange): StringSlice {
     if (range.first !in 0 until length || range.last < length) {
         throw IndexOutOfBoundsException()
     }

@@ -3,18 +3,17 @@
 package jp.pois.lsonkt
 
 import jp.pois.lsonkt.source.CharSequenceSlice
+import jp.pois.lsonkt.util.*
 
 sealed class JsonValue {
     protected var failed = false
 
-    @Suppress("NOTHING_TO_INLINE")
-    protected inline fun fail(): Nothing {
+    protected fun fail(): Nothing {
         failed = true
         throw ParsingFailedException()
     }
 
-    @Suppress("NOTHING_TO_INLINE")
-    protected inline fun fail(e: Throwable): Nothing {
+    protected fun fail(e: Throwable): Nothing {
         failed = true
         throw e
     }
@@ -87,26 +86,30 @@ data class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSeq
 
         while (cursor < rawCharSeq.length) {
             val c = rawCharSeq[cursor]
-            tmp[tmpCursor++] = if (c == '\\') {
-                when (rawCharSeq[++cursor]) {
-                    '"' -> '"'
-                    '\\' -> '\\'
-                    '/' -> '/'
-                    'b' -> '\b'
-                    'f' -> '\u000C'
-                    'n' -> '\n'
-                    'r' -> '\r'
-                    't' -> '\t'
-                    'u' -> {
-                        if (cursor + 5 > rawCharSeq.length) throw IndexOutOfBoundsException()
+            tmp[tmpCursor++] = when {
+                c == '\\' -> {
+                    when (rawCharSeq[++cursor]) {
+                        '"' -> '"'
+                        '\\' -> '\\'
+                        '/' -> '/'
+                        'b' -> '\b'
+                        'f' -> '\u000C'
+                        'n' -> '\n'
+                        'r' -> '\r'
+                        't' -> '\t'
+                        'u' -> {
+                            if (cursor + 5 > rawCharSeq.length) throw IndexOutOfBoundsException()
 
-                        rawCharSeq.substring(cursor + 1, cursor + 5).toInt(16).toChar().also {
-                            cursor += 4
+                            rawCharSeq.substring(cursor + 1, cursor + 5).toInt(16).toChar().also {
+                                cursor += 4
+                            }
                         }
+                        else -> fail()
                     }
-                    else -> fail()
                 }
-            } else c
+                c.isControlCharacter() -> fail()
+                else -> c
+            }
             cursor++
         }
 
@@ -287,7 +290,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
 
             if (c == ',') {
                 currentState = ArrayAfterComma
-            } else if (!c.isWhitespace()) {
+            } else if (!c.isJsonWhitespace()) {
                 println(rawCharSeq)
                 println(cursor - 1)
                 println(c)
@@ -308,7 +311,7 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
                 else return false
             }
             val c = rawCharSeq[cursor]
-            if (c.isWhitespace()) continue
+            if (c.isJsonWhitespace()) continue
             if (nest == 0) {
                 when (c) {
                     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-' -> {
@@ -422,12 +425,17 @@ open class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), List<Jso
     }
 
     private fun classifyNumber(): Boolean {
+        var cursor = cursor
+
         var isFloat = false
-        while (++cursor < rawCharSeq.length) {
-            val c = rawCharSeq[cursor]
-            if (c.isWhitespace() || c == ',') break
-            if (c == '.' || c == 'e') isFloat = true
+        loop@ while (++cursor < rawCharSeq.length) {
+            when (rawCharSeq[cursor]) {
+                JsonWhitespaceSpace, JsonWhitespaceLinefeed, JsonWhitespaceCarriageReturn, JsonWhitespaceHorizontalTab, ',' -> break@loop
+                '.', 'e', 'E' -> isFloat = true
+            }
         }
+
+        this.cursor = cursor
         return isFloat
     }
 }
@@ -545,7 +553,7 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
 
             if (c == ',') {
                 currentState = ObjectAfterComma
-            } else if (!c.isWhitespace()) fail()
+            } else if (!c.isJsonWhitespace()) fail()
         }
 
         var nest = 0
@@ -561,7 +569,7 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
             }
 
             val c = rawCharSeq[cursor]
-            if (c.isWhitespace()) continue
+            if (c.isJsonWhitespace()) continue
             if (c == '"') {
                 this.cursor = cursor
                 key = parseKey()
@@ -575,7 +583,7 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
         loop@ while (true) {
             if (++cursor >= rawCharSeq.length) fail()
             val c = rawCharSeq[cursor]
-            if (c.isWhitespace()) continue
+            if (c.isJsonWhitespace()) continue
             if (nest == 0) {
                 when (c) {
                     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-' -> {
@@ -604,7 +612,7 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
                     }
                     'f' -> {
                         if (rawCharSeq.substring(cursor, cursor + 5) == "false") {
-                            value = BooleanValue(true)
+                            value = BooleanValue(false)
                             cursor += 5
                             currentState = ArrayValueFinished
                             break@loop
@@ -613,7 +621,7 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
                     }
                     'n' -> {
                         if (rawCharSeq.substring(cursor, cursor + 4) == "null") {
-                            value = BooleanValue(true)
+                            value = NullValue
                             cursor += 4
                             currentState = ArrayValueFinished
                             break@loop
@@ -622,11 +630,10 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
                     }
                 }
             }
+
             when (c) {
                 '{' -> {
                     if (nest == 0) {
-                        if (!currentState.readyForNextValue) fail()
-
                         startAt = cursor + 1
                         currentState = ObjectStarted
                     }
@@ -644,8 +651,6 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
                 }
                 '[' -> {
                     if (nest == 0) {
-                        if (!currentState.readyForNextValue) fail()
-
                         startAt = cursor + 1
                         currentState = ArrayStarted
                     }
@@ -663,8 +668,6 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
                 }
                 '"' -> {
                     if (nest == 0) {
-                        if (!currentState.readyForNextValue) fail()
-
                         startAt = cursor + 1
                     }
 
@@ -732,10 +735,11 @@ class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), Map<String, 
         var cursor = cursor
 
         var isFloat = false
-        while (++cursor < rawCharSeq.length) {
-            val c = rawCharSeq[cursor]
-            if (c.isWhitespace() || c == ',') break
-            if (c == '.' || c == 'e') isFloat = true
+        loop@ while (++cursor < rawCharSeq.length) {
+            when (rawCharSeq[cursor]) {
+                JsonWhitespaceSpace, JsonWhitespaceLinefeed, JsonWhitespaceCarriageReturn, JsonWhitespaceHorizontalTab, ',' -> break@loop
+                '.', 'e', 'E' -> isFloat = true
+            }
         }
 
         this.cursor = cursor
