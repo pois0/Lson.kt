@@ -43,7 +43,7 @@ internal val StringAfterBackSlash = JsonParserState(2 or StringState)
 internal val StringUnicode = JsonParserState(3 or StringState)
 internal val StringClosed = JsonParserState(0 or StringState)
 
-internal val ArrayStarted = JsonParserState(1 or ArrayState or ReadyForNextValue)
+internal val ArrayStarted = JsonParserState(1 or ArrayState or ReadyForNextValue or ReadyToClose)
 internal val ArrayValueFinished = JsonParserState(2 or ArrayState)
 internal val ArrayAfterComma = JsonParserState(3 or ArrayState or ReadyForNextValue)
 internal val ArrayClosed = JsonParserState(0 or ArrayState)

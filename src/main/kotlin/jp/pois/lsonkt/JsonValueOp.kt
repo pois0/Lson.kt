@@ -84,3 +84,16 @@ inline fun JsonValue?.asArrayOrNull(): ArrayValue? = this as? ArrayValue
 inline fun JsonValue?.asObject(): ObjectValue = this as ObjectValue
 
 inline fun JsonValue?.asObjectOrNull(): ObjectValue? = this as? ObjectValue
+
+fun JsonValue.parseDescendant() {
+    parseAll()
+    if (this.isArray()) {
+        this.forEach {
+            it.parseDescendant()
+        }
+    } else if (this.isObject()) {
+        this.values.forEach {
+            it.parseDescendant()
+        }
+    }
+}
