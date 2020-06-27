@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val kotestVersion = "4.0.6"
+val kxCoroutineVersion = "1.3.7"
 
 plugins {
     kotlin("jvm") version "1.3.72"
@@ -11,6 +12,7 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 tasks.withType<Test> {
@@ -19,7 +21,7 @@ tasks.withType<Test> {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    testImplementation(kotlin("reflect"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kxCoroutineVersion")
     testImplementation("io.kotest:kotest-runner-junit5-jvm:$kotestVersion") // for kotest framework
     testImplementation("io.kotest:kotest-assertions-core-jvm:$kotestVersion") // for kotest core jvm assertions
     testImplementation("io.kotest:kotest-runner-console-jvm:$kotestVersion")
