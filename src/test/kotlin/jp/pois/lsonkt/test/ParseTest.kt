@@ -170,7 +170,7 @@ class ArrayTest : StringSpec({
     val arrayOfArray = "[], [[]], [[], [[]]]"
 
     "arrayInArray" {
-        val arr = ArrayValue(StringSlice("[], [[]], [[], [[]]]"))
+        val arr = ArrayValue(StringSlice(arrayOfArray))
         arr[0].asArray().isEmpty() shouldBe true
         arr[1].asArray()[0].asArray().isEmpty() shouldBe true
         arr[2].asArray().let {
@@ -218,6 +218,9 @@ class ObjectTest : StringSpec({
 
     "simpleObject" {
         val obj = ObjectValue(StringSlice(simpleObject))
+        for ((k, v) in obj) {
+            println(k to v)
+        }
         obj["key1"].shouldBeInstanceOf<NullValue>()
         obj["key2"].asBoolean().value shouldBe true
         obj["key3"].asBoolean().value shouldBe false

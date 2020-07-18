@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val kotestVersion = "4.0.6"
 val kxCoroutineVersion = "1.3.7"
+val literVersion = "0.2.2"
 
 plugins {
     kotlin("jvm") version "1.3.72"
@@ -22,10 +23,12 @@ tasks.withType<Test> {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kxCoroutineVersion")
+    implementation("jp.pois:liter:$literVersion")
     testImplementation("io.kotest:kotest-runner-junit5-jvm:$kotestVersion") // for kotest framework
     testImplementation("io.kotest:kotest-assertions-core-jvm:$kotestVersion") // for kotest core jvm assertions
     testImplementation("io.kotest:kotest-runner-console-jvm:$kotestVersion")
     testImplementation("io.kotest:kotest-property-jvm:$kotestVersion") // for kotest property test
+    testImplementation("jp.pois:liter:0.2.1")
 }
 
 tasks {

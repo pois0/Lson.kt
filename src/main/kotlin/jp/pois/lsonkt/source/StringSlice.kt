@@ -11,7 +11,7 @@ class StringSlice internal constructor(val original: String, val startIndex: Int
 
     override fun slice(startIndex: Int, endIndex: Int): StringSlice {
         if (startIndex !in 0..endIndex || endIndex > length) {
-            throw IndexOutOfBoundsException()
+            throw IndexOutOfBoundsException("length: $length, range: $startIndex until $endIndex")
         }
 
         return StringSlice(
