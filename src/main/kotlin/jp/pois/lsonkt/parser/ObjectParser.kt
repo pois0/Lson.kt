@@ -2,12 +2,11 @@ package jp.pois.lsonkt.parser
 
 import jp.pois.lsonkt.JsonValue
 import jp.pois.lsonkt.readyToClose
-import jp.pois.lsonkt.source.CharSequenceSlice
 import jp.pois.lsonkt.util.isJsonWhitespace
 
 internal typealias NameValuePair = Pair<String, JsonValue>
 
-internal class ObjectParser(rawCharSeq: CharSequenceSlice) : IteratorParser<NameValuePair>(rawCharSeq) {
+internal class ObjectParser(rawCharSeq: CharSequence) : IteratorParser<NameValuePair>(rawCharSeq) {
     override fun parseNext(): NameValuePair? {
         if (!skipUntilReadyForNextEntry()) return null
 
@@ -56,8 +55,7 @@ internal class ObjectParser(rawCharSeq: CharSequenceSlice) : IteratorParser<Name
     private fun parseKey() = buildString {
         var cursor = cursor
         loop@ while (cursor < rawCharSeq.length) {
-            val c = rawCharSeq[cursor++]
-            when (c) {
+            when (val c = rawCharSeq[cursor++]) {
                 '"' -> break@loop
                 '\\' -> {
                     append(

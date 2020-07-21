@@ -2,10 +2,9 @@ package jp.pois.lsonkt.parser
 
 import jp.pois.lsonkt.parser.error.ParseErrorHandler
 import jp.pois.lsonkt.parser.error.ParseErrorHandlerImpl
-import jp.pois.lsonkt.source.CharSequenceSlice
 import jp.pois.lsonkt.util.isControlCharacter
 
-internal class StringParser(private val rawCharSeq: CharSequenceSlice) : CharSequence,
+internal class StringParser(private val rawCharSeq: CharSequence) : CharSequence,
     ParseErrorHandler by ParseErrorHandlerImpl() {
     private val value: String by lazy { parseToString() }
 

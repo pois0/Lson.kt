@@ -1,7 +1,7 @@
 package jp.pois.lsonkt.source
 
 class StringSlice internal constructor(val original: String, val startIndex: Int, val endIndex: Int) :
-    CharSequenceSlice {
+    CharSequence {
     internal constructor(original: String) : this(original, 0, original.length)
 
     override val length: Int = endIndex - startIndex
@@ -9,7 +9,7 @@ class StringSlice internal constructor(val original: String, val startIndex: Int
     override operator fun get(index: Int): Char =
         if (index in 0 until length) original[startIndex + index] else throw IndexOutOfBoundsException()
 
-    override fun slice(startIndex: Int, endIndex: Int): StringSlice {
+    override fun subSequence(startIndex: Int, endIndex: Int): StringSlice {
         if (startIndex !in 0..endIndex || endIndex > length) {
             throw IndexOutOfBoundsException("length: $length, range: $startIndex until $endIndex")
         }
@@ -19,14 +19,6 @@ class StringSlice internal constructor(val original: String, val startIndex: Int
             this.startIndex + startIndex,
             this.startIndex + endIndex
         )
-    }
-
-    override fun substring(startIndex: Int, endIndex: Int): String {
-        if (startIndex !in 0 until endIndex || endIndex > length) {
-            throw IndexOutOfBoundsException()
-        }
-
-        return original.substring(this.startIndex + startIndex, this.startIndex + endIndex)
     }
 
     override fun toString(): String = original.substring(startIndex, endIndex)

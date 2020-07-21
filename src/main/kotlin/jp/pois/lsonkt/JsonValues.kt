@@ -9,7 +9,6 @@ import jp.pois.lsonkt.parser.ObjectParser
 import jp.pois.lsonkt.parser.StringParser
 import jp.pois.lsonkt.parser.error.ParseErrorHandler
 import jp.pois.lsonkt.parser.error.ParseErrorHandlerImpl
-import jp.pois.lsonkt.source.CharSequenceSlice
 
 sealed class JsonValue
 
@@ -19,7 +18,7 @@ data class BooleanValue(val value: Boolean) : JsonValue() {
     override fun toString() = value.toString()
 }
 
-data class IntegerValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), ParseErrorHandler by ParseErrorHandlerImpl() {
+data class IntegerValue(val rawCharSeq: CharSequence) : JsonValue(), ParseErrorHandler by ParseErrorHandlerImpl() {
     companion object {
         private const val Limit = Long.MAX_VALUE / 10
     }
@@ -57,7 +56,7 @@ data class IntegerValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), ParseE
     override fun toString(): String = value.toString()
 }
 
-data class FloatValue(val rawCharSeq: CharSequenceSlice) : JsonValue() {
+data class FloatValue(val rawCharSeq: CharSequence) : JsonValue() {
     val value: Double by lazy { parseToDouble() }
 
     // TODO: Parse the string as a double strictly
@@ -66,7 +65,7 @@ data class FloatValue(val rawCharSeq: CharSequenceSlice) : JsonValue() {
     override fun toString(): String = value.toString()
 }
 
-class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSequence {
+class StringValue(val rawCharSeq: CharSequence) : JsonValue(), CharSequence {
     private val parser = StringParser(rawCharSeq)
 
     override val length: Int
@@ -79,8 +78,8 @@ class StringValue(val rawCharSeq: CharSequenceSlice) : JsonValue(), CharSequence
     override fun toString(): String = parser.toString()
 }
 
-class ArrayValue(val rawCharSeq: CharSequenceSlice) : JsonValue(),
+class ArrayValue(val rawCharSeq: CharSequence) : JsonValue(),
     List<JsonValue> by ArrayParser(rawCharSeq).literList()
 
-class ObjectValue(val rawCharSeq: CharSequenceSlice) : JsonValue(),
+class ObjectValue(val rawCharSeq: CharSequence) : JsonValue(),
     Map<String, JsonValue> by ObjectParser(rawCharSeq).literMap()

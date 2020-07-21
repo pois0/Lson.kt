@@ -3,10 +3,9 @@ package jp.pois.lsonkt.parser
 import jp.pois.lsonkt.*
 import jp.pois.lsonkt.parser.error.ParseErrorHandler
 import jp.pois.lsonkt.parser.error.ParseErrorHandlerImpl
-import jp.pois.lsonkt.source.CharSequenceSlice
 import jp.pois.lsonkt.util.*
 
-internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequenceSlice) : Iterator<T>,
+internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence) : Iterator<T>,
     ParseErrorHandler by ParseErrorHandlerImpl() {
     protected var cursor: Int = 0
 
@@ -86,9 +85,9 @@ internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence
                     cursor = this.cursor
 
                     return@run if (cond) {
-                        FloatValue(rawCharSeq.slice(startAt, cursor))
+                        FloatValue(rawCharSeq.subSequence(startAt, cursor))
                     } else {
-                        IntegerValue(rawCharSeq.slice(startAt, cursor))
+                        IntegerValue(rawCharSeq.subSequence(startAt, cursor))
                     }
                 }
                 't' -> {
@@ -118,7 +117,7 @@ internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence
                     while (cursor < rawCharSeq.length) {
                         when (rawCharSeq[cursor]) {
                             '"' -> {
-                                return@run StringValue(rawCharSeq.slice(startAt, cursor++))
+                                return@run StringValue(rawCharSeq.subSequence(startAt, cursor++))
                             }
                             '\\' -> cursor += 2
                             else -> cursor++
@@ -150,14 +149,14 @@ internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence
                         --nest
                         if (nest == 0) {
                             if (c != '{') fail()
-                            return@run ObjectValue(rawCharSeq.slice(startAt, cursor++))
+                            return@run ObjectValue(rawCharSeq.subSequence(startAt, cursor++))
                         }
                     }
                     ']' -> {
                         --nest
                         if (nest == 0) {
                             if (c != '[') fail()
-                            return@run ArrayValue(rawCharSeq.slice(startAt, cursor++))
+                            return@run ArrayValue(rawCharSeq.subSequence(startAt, cursor++))
                         }
                     }
                     '"' -> {

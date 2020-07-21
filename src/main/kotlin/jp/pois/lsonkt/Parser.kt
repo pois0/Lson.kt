@@ -19,15 +19,15 @@ internal fun parseRoot(rawCharSeq: StringSlice): JsonValue {
         when (c) {
             '"' -> {
                 val end = lastIndexOf(rawCharSeq, cursor + 1, '"')
-                return StringValue(rawCharSeq.slice(cursor + 1, end))
+                return StringValue(rawCharSeq.subSequence(cursor + 1, end))
             }
             '[' -> {
                 val end = lastIndexOf(rawCharSeq, cursor + 1, ']')
-                return ArrayValue(rawCharSeq.slice(cursor + 1, end))
+                return ArrayValue(rawCharSeq.subSequence(cursor + 1, end))
             }
             '{' -> {
                 val end = lastIndexOf(rawCharSeq, cursor + 1, '}')
-                return ObjectValue(rawCharSeq.slice(cursor + 1, end))
+                return ObjectValue(rawCharSeq.subSequence(cursor + 1, end))
             }
             't' -> {
                 if (rawCharSeq.substring(cursor + 1, cursor + 4) != "rue") {
@@ -64,7 +64,7 @@ internal fun parseRoot(rawCharSeq: StringSlice): JsonValue {
                     }
                 }
 
-                val slice = rawCharSeq.slice(startAt, cursor)
+                val slice = rawCharSeq.subSequence(startAt, cursor)
                 return if (isFloat) FloatValue(slice) else IntegerValue(slice)
             }
             else -> throw ParsingFailedException()
