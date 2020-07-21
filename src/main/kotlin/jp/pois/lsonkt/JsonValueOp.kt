@@ -94,7 +94,7 @@ fun JsonValue.parseDescendant() {
     when (this) {
         is IntegerValue -> value
         is FloatValue -> value
-        is StringValue -> value
+        is StringValue -> toString()
         is ArrayValue -> {
             forEach {
                 it.parseDescendant()
@@ -110,30 +110,34 @@ fun JsonValue.parseDescendant() {
     }
 }
 
-suspend fun JsonValue.parseDescendantAsync(stopAsync: Int, capacity: Int): Unit = coroutineScope<Unit> {
-    when (this@parseDescendantAsync) {
-        is IntegerValue -> value
-        is FloatValue -> value
-        is StringValue -> value
-        is ArrayValue -> {
-            if (this@parseDescendantAsync.rawCharSeq.length < stopAsync) {
-                parseDescendant()
-            } else {
-                this@parseDescendantAsync.asFlow().buffer(capacity).collect { value ->
-                    launch { value.parseDescendantAsync(stopAsync, capacity) }
+private const val defaultStopAsync = 2000
+private const val defaultCapacity = 3
+
+suspend fun JsonValue.parseDescendantAsync(stopAsync: Int = defaultStopAsync, capacity: Int = defaultCapacity): Unit =
+    coroutineScope<Unit> {
+        when (this@parseDescendantAsync) {
+            is IntegerValue -> value
+            is FloatValue -> value
+            is StringValue -> toString()
+            is ArrayValue -> {
+                if (this@parseDescendantAsync.rawCharSeq.length < stopAsync) {
+                    parseDescendant()
+                } else {
+                    this@parseDescendantAsync.asFlow().buffer(capacity).collect { value ->
+                        launch { value.parseDescendantAsync(stopAsync, capacity) }
+                    }
                 }
             }
-        }
-        is ObjectValue -> {
-            if (this@parseDescendantAsync.rawCharSeq.length < stopAsync) {
-                parseDescendant()
-            } else {
-                this@parseDescendantAsync.asIterable().asFlow().buffer(capacity).collect { (_, value) ->
-                    launch { value.parseDescendantAsync(stopAsync, capacity) }
+            is ObjectValue -> {
+                if (this@parseDescendantAsync.rawCharSeq.length < stopAsync) {
+                    parseDescendant()
+                } else {
+                    this@parseDescendantAsync.asIterable().asFlow().buffer(capacity).collect { (_, value) ->
+                        launch { value.parseDescendantAsync(stopAsync, capacity) }
+                    }
                 }
             }
-        }
-        else -> {
+            else -> {
         }
     }
 }

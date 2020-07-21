@@ -62,7 +62,7 @@ class StringParseTest : StringSpec({
 
     "legalStrings" {
         legalStrings.forEach { (value, expected) ->
-            StringValue(StringSlice(value)).value shouldBe expected
+            StringValue(StringSlice(value)).toString() shouldBe expected
         }
     }
 
@@ -70,7 +70,7 @@ class StringParseTest : StringSpec({
         legalStrings.forEach { (value, expected) ->
             val str = parse("\"$value\"")
             str.shouldBeInstanceOf<StringValue>()
-            str.asString().value shouldBe expected
+            str.asString().toString() shouldBe expected
         }
     }
 
@@ -87,7 +87,7 @@ class StringParseTest : StringSpec({
 
     "backQuoteStrings" {
         backQuoteStrings.forEach { (value, expected) ->
-            StringValue(StringSlice("\\" + value)).value shouldBe expected
+            StringValue(StringSlice("\\" + value)).toString() shouldBe expected
         }
     }
 
@@ -95,7 +95,7 @@ class StringParseTest : StringSpec({
         backQuoteStrings.forEach { (value, expected) ->
             val str = parse("\"\\$value\"")
             str.shouldBeInstanceOf<StringValue>()
-            str.asString().value shouldBe expected
+            str.asString().toString() shouldBe expected
         }
     }
 })
@@ -154,7 +154,7 @@ class ArrayTest : StringSpec({
         val arr = ArrayValue(StringSlice(stringArray.joinToString { "\"${it.first}\"" }))
 
         for ((i, str) in stringArray.map { it.second }.withIndex()) {
-            arr[i].asString().value shouldBe str
+            arr[i].asString().toString() shouldBe str
         }
     }
 
@@ -163,7 +163,7 @@ class ArrayTest : StringSpec({
         arr.shouldBeInstanceOf<ArrayValue>()
 
         for ((i, str) in stringArray.map { it.second }.withIndex()) {
-            arr.asArray()[i].asString().value shouldBe str
+            arr.asArray()[i].asString().toString() shouldBe str
         }
     }
 
@@ -225,7 +225,7 @@ class ObjectTest : StringSpec({
         obj["key2"].asBoolean().value shouldBe true
         obj["key3"].asBoolean().value shouldBe false
         obj["key4"].asInteger().value shouldBe 320
-        obj["key5"].asString().value shouldBe "Keys to Ascension"
+        obj["key5"].asString().toString() shouldBe "Keys to Ascension"
         obj["key6"].asArray().shouldBeEmpty()
         obj["key7"].asObject().shouldBeEmpty()
     }
@@ -238,7 +238,7 @@ class ObjectTest : StringSpec({
         obj["key2"].asBoolean().value shouldBe true
         obj["key3"].asBoolean().value shouldBe false
         obj["key4"].asInteger().value shouldBe 320
-        obj["key5"].asString().value shouldBe "Keys to Ascension"
+        obj["key5"].asString().toString() shouldBe "Keys to Ascension"
         obj["key6"].asArray().shouldBeEmpty()
         obj["key7"].asObject().shouldBeEmpty()
     }
