@@ -2,6 +2,7 @@
 
 package jp.pois.lsonkt
 
+import jp.pois.lsonkt.parser.error.ParsingFailedException
 import jp.pois.lsonkt.source.StringSlice
 import jp.pois.lsonkt.util.*
 

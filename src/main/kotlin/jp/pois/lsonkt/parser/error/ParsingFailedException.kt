@@ -1,4 +1,4 @@
-package jp.pois.lsonkt
+package jp.pois.lsonkt.parser.error
 
 class ParsingFailedException : Exception {
     constructor() : super()

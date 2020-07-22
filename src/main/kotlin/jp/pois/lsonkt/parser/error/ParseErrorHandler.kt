@@ -1,7 +1,5 @@
 package jp.pois.lsonkt.parser.error
 
-import jp.pois.lsonkt.ParsingFailedException
-
 internal interface ParseErrorHandler {
     var failed: Boolean
 
