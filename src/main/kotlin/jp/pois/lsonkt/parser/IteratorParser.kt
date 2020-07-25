@@ -7,27 +7,42 @@ import jp.pois.lsonkt.util.*
 
 internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence) : Iterator<T>,
     ParseErrorHandler by ParseErrorHandlerImpl() {
-    protected var cursor: Int = 0
+    protected var cursor: Int
 
     private val isScannedAll
         get() = currentState == IteratorClosed
 
     internal var currentState = IteratorStarted
 
+    init {
+        cursor = run {
+            var cursor = 0
+            while (true) {
+                if (cursor >= rawCharSeq.length) {
+                    currentState = IteratorClosed
+                    return@run 0
+                }
+
+                if (!rawCharSeq[cursor].isJsonWhitespace()) break
+                cursor++
+            }
+
+            cursor
+        }
+    }
+
     abstract fun parseNext(): T?
 
     override fun hasNext(): Boolean = skipUntilReadyForNextEntry()
 
-    override fun next(): T {
-        return parseNext() ?: throw NoSuchElementException()
-    }
+    override fun next(): T = parseNext() ?: throw NoSuchElementException()
 
     protected fun skipUntilReadyForNextEntry(): Boolean {
         if (currentState.readyForNextEntry) return true
         if (isScannedAll) return false
         var cursor = cursor
 
-        while (true) {
+        loop@ while (true) {
             if (cursor >= rawCharSeq.length) {
                 currentState = IteratorClosed
                 return false
@@ -35,12 +50,14 @@ internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence
 
             val c = rawCharSeq[cursor]
 
-            if (c == ',') {
-                currentState = IteratorAfterComma
-                this.cursor = cursor + 1
-                return true
-            } else if (!c.isJsonWhitespace()) failUnexpected(',', c, cursor)
-
+            when {
+                c == ',' -> {
+                    currentState = IteratorAfterComma
+                    this.cursor = cursor + 1
+                    return true
+                }
+                !c.isJsonWhitespace() -> failUnexpected(',', c, cursor)
+            }
             cursor++
         }
     }
@@ -146,20 +163,21 @@ internal abstract class IteratorParser<T>(protected val rawCharSeq: CharSequence
                 when (rawCharSeq[cursor]) {
                     '[', '{' -> nest++
                     '}' -> {
-                        --nest
+                        nest--
                         if (nest == 0) {
                             if (c != '{') fail()
                             return@run ObjectValue(rawCharSeq.subSequence(startAt, cursor++))
                         }
                     }
                     ']' -> {
-                        --nest
+                        nest--
                         if (nest == 0) {
                             if (c != '[') fail()
                             return@run ArrayValue(rawCharSeq.subSequence(startAt, cursor++))
                         }
                     }
                     '"' -> {
+                        cursor++
                         stringLoop@ while (true) {
                             if (cursor >= rawCharSeq.length) fail()
                             when (rawCharSeq[cursor++]) {

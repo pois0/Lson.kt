@@ -6,11 +6,9 @@ internal const val JsonWhitespaceSpace = '\u0020'
 internal const val JsonWhitespaceLinefeed = '\u000A'
 internal const val JsonWhitespaceCarriageReturn = '\u000D'
 internal const val JsonWhitespaceHorizontalTab = '\u0009'
-private const val JsonWhitespaceMask =
-    JsonWhitespaceSpace.toInt() or JsonWhitespaceLinefeed.toInt() or JsonWhitespaceCarriageReturn.toInt() or JsonWhitespaceHorizontalTab.toInt()
 
 internal inline fun Char.isJsonWhitespace(): Boolean {
-    return (this.toInt() and JsonWhitespaceMask) != 0
+    return this < JsonWhitespaceSpace + 1
             && (
             this == JsonWhitespaceSpace
                     || this == JsonWhitespaceLinefeed
@@ -19,5 +17,6 @@ internal inline fun Char.isJsonWhitespace(): Boolean {
 }
 
 internal inline fun Char.isControlCharacter(): Boolean {
+    isWhitespace()
     return this < 0x20.toChar()
 }
