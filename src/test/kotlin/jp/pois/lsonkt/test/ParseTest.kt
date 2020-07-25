@@ -125,7 +125,7 @@ class ArrayTest : StringSpec({
         val arr = parse(booleanArray.joinToString(prefix = "[", postfix = "]"))
         arr.shouldBeInstanceOf<ArrayValue>()
         for ((i, b) in booleanArray.withIndex()) {
-            arr.asArray()[i].asBoolean().value shouldBe b
+            arr[i].asBoolean().value shouldBe b
         }
     }
 
@@ -144,7 +144,7 @@ class ArrayTest : StringSpec({
         arr.shouldBeInstanceOf<ArrayValue>()
 
         for (i in intArray) {
-            arr.asArray()[i].asInteger().value shouldBe i
+            arr[i].asInteger().value shouldBe i
         }
     }
 
@@ -163,7 +163,7 @@ class ArrayTest : StringSpec({
         arr.shouldBeInstanceOf<ArrayValue>()
 
         for ((i, str) in stringArray.map { it.second }.withIndex()) {
-            arr.asArray()[i].asString().toString() shouldBe str
+            arr[i].asString().toString() shouldBe str
         }
     }
 
@@ -172,11 +172,11 @@ class ArrayTest : StringSpec({
     "arrayInArray" {
         val arr = ArrayValue(StringSlice(arrayOfArray))
         arr[0].asArray().isEmpty() shouldBe true
-        arr[1].asArray()[0].asArray().isEmpty() shouldBe true
+        arr[1][0].asArray().isEmpty() shouldBe true
         arr[2].asArray().let {
             it.size shouldBe 2
             it[0].asArray().isEmpty() shouldBe true
-            it[1].asArray()[0].asArray().isEmpty() shouldBe true
+            it[1][0].asArray().isEmpty() shouldBe true
         }
     }
 
@@ -218,9 +218,6 @@ class ObjectTest : StringSpec({
 
     "simpleObject" {
         val obj = ObjectValue(StringSlice(simpleObject))
-        for ((k, v) in obj) {
-            println(k to v)
-        }
         obj["key1"].shouldBeInstanceOf<NullValue>()
         obj["key2"].asBoolean().value shouldBe true
         obj["key3"].asBoolean().value shouldBe false
@@ -260,5 +257,20 @@ class ObjectTest : StringSpec({
         val obj = _obj.asObject()
         obj["\\"].shouldBeInstanceOf<NullValue>()
         obj["\n\t"].asBoolean().value shouldBe false
+    }
+
+    val objectInObject = """
+        "object": {
+            "object": {},
+            "{}": {}
+        },
+        "second": {}
+    """.trimIndent()
+
+    "objectInObject" {
+        val obj = ObjectValue(StringSlice(objectInObject))
+        obj["object"]["object"].asObject().shouldBeEmpty()
+        obj["object"]["{}"].asObject().shouldBeEmpty()
+        obj["second"].asObject().shouldBeEmpty()
     }
 })

@@ -90,6 +90,29 @@ inline fun JsonValue?.asObject(): ObjectValue = this as ObjectValue
 
 inline fun JsonValue?.asObjectOrNull(): ObjectValue? = this as? ObjectValue
 
+inline operator fun JsonValue?.get(index: Int): JsonValue {
+    if (this !is ArrayValue) throw UnsupportedOperationException()
+
+    return get(index)
+}
+
+@OptIn(ExperimentalContracts::class)
+inline fun JsonValue?.getOrNull(index: Int): JsonValue? {
+    contract {
+        returnsNotNull() implies (this@getOrNull is ArrayValue)
+    }
+
+    return (this as? ArrayValue)?.get(index)
+}
+
+inline operator fun JsonValue?.get(key: String): JsonValue? {
+    if (this !is ObjectValue) throw UnsupportedOperationException()
+
+    return get(key)
+}
+
+inline fun JsonValue?.getOrNull(key: String): JsonValue? = (this as? ObjectValue)?.get(key)
+
 fun JsonValue.parseDescendant() {
     when (this) {
         is IntegerValue -> value
